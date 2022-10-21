@@ -1,0 +1,3 @@
+INDEX VERSION 1.131
+D:\Ashok IT\21 Spring Boot and Microservice Notes\spring boot web mvc workspace\.metadata\.plugins\org.eclipse.jst.jsp.core\jspsearch\3955490717.index
+\01-SpringBootWebAppFirstExWithJSP\src\main\java

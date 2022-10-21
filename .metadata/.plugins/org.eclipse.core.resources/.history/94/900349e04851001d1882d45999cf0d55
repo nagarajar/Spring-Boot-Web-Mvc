@@ -1,0 +1,5 @@
+package com.app.nagu.controller;
+
+public class UserController {
+
+}
