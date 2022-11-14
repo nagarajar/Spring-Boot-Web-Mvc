@@ -1,20 +1,22 @@
 package com.app.employee.controller;
 
-import java.util.List;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.app.employee.entity.Employee;
+import com.app.employee.exception.EmployeeNotFoundException;
 import com.app.employee.service.IEmployeeService;
+import com.app.employee.util.EmployeeUtil;
 
 @Controller
 @RequestMapping("/employee")
@@ -29,8 +31,9 @@ public class EmployeeController
 	 * when end-user enters /register with GET Type
 	 */
 	@GetMapping("/register")
-	public String showRegisterPage()
-	{
+	public String showRegisterPage(Model model)
+	{	
+		EmployeeUtil.createDeptList(model);
 		return "EmployeeRegister";
 	}
 	
@@ -56,6 +59,8 @@ public class EmployeeController
 		String message = new StringBuffer().append("EMPLOYEE ID = '")
 				.append(id).append("' CREATED ").toString();
 		model.addAttribute("message", message);
+		//for dynamic dept list drop down
+		EmployeeUtil.createDeptList(model);
 		return "EmployeeRegister";
 	}
 	
@@ -70,23 +75,105 @@ public class EmployeeController
 	 * @param model
 	 * @return
 	 */
-	@GetMapping("/all")
-	public String showData(Model model) 
+	/*@GetMapping("/all")
+	public String showData(
+			Model model,
+			@RequestParam(value = "message",required = false) String message) 
 	{
 		List<Employee> list = service.getAllEmployee();
 		model.addAttribute("list", list);
+		model.addAttribute("message", message);
+		return "EmployeeData";
+	}*/
+	//Using Pagination concept
+	@GetMapping("/all")
+	public String showData(
+			Model model,
+			@PageableDefault(page = 0,size = 3) Pageable pageable,
+			@RequestParam(value = "message",required = false) String message) 
+	{
+		//List<Employee> list = service.getAllEmployee();
+		Page<Employee> page = service.getAllEmployee(pageable);
+		model.addAttribute("list", page.getContent());
+		model.addAttribute("page", page);
+		model.addAttribute("message", message);
 		return "EmployeeData";
 	}
 	
-	//4. DELETE BASED ON ID
-	@DeleteMapping("/delete")
-	public void deleteData(@RequestParam("id") int id)
+	/**
+	 * 4. Delete based on id
+	 * On Click Delete HyperLink, a Request is made by browser looks like 
+	 * /employee/delete?id=someVal.
+	 * Read data using Annotation @RequestParam and call service to delete from db.
+	 * 
+	 * Just redirect to /all with one message (RedirectAttribute)
+	 * that will display all rows with message. 
+	 */
+	@GetMapping("/delete")
+	public String deleteData(
+			@RequestParam("id") Integer empId,
+			RedirectAttributes attributes)
 	{
-		service.deleteEmployee(id);
+		String msg = null;
+		//4th change for Exception should add try catch block
+		try {
+			service.deleteEmployee(empId);
+			msg = "Employee '"+empId+"' Deleted";
+			
+		} catch (EmployeeNotFoundException e) {
+			e.printStackTrace();
+			msg = e.getMessage();
+		}
+		attributes.addAttribute("message", msg);
+		return "redirect:all";
 	}
 	
-	//5. ON CLICK EDIT LINK(HyperLink) SHOW DATA IN EDIT FORM
+	
+	/**
+	 * 5. On Click Edit Link(HyperLink) Show data in Edit Form.
+	 * When end user clicks on EDIT Link, internal request looks like /edit?empId=10
+	 * Read DB Row using service call, that may return employee object else throw exception
+	 * (if not found).
+	 * If object is present use Model to send that object to Form(UI).
+	 * Else redirect to /all with ErrorMessage(Redirect Attributes).
+	 * @param empId
+	 * @param model
+	 * @param attributes
+	 * @return
+	 */
+	@GetMapping("/edit")
+	public String showEdit(
+			@RequestParam("id") Integer empId,
+			Model model,
+			RedirectAttributes attributes
+			)
+	{
+		String page = null;
+		try {
+			Employee employee = service.getOneEmployee(empId);
+			model.addAttribute("employee", employee);
+			//for dynamic dept list drop down
+			EmployeeUtil.createDeptList(model);
+			page = "EmployeeEdit";
+			
+		} catch (EmployeeNotFoundException e) {
+					e.printStackTrace();
+					attributes.addAttribute("message", e.getMessage());
+					page = "redirect:all";
+		}
+		return page;
+	}
 	
 	//6. UPDATE FORM DATA AND SUBMIT
+	@PostMapping("/update")
+	public String updateData(
+			@ModelAttribute Employee employee,
+			RedirectAttributes attributes
+			) 
+	{
+		service.updateEmployee(employee);
+		attributes.addAttribute("message", "Employee '"+employee.getEmpId()+"' Updated");
+		return "redirect:all";
+	}
 }
 
